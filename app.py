@@ -62,25 +62,64 @@ def upload_file():
                     return redirect(request.url)
 
                 # Perform detection
-                detected, status_message = detect_brick(filepath)
+                detected, status_message, bbox_coords, centroid_coords, orientation = detect_brick(filepath)
 
-                # For debugging, let's see the status message
-                print(f"Detection status for {filename}: {status_message}")
+                # For debugging
+                print(f"Detection for {filename}: Detected={detected}, Status='{status_message}', BBox={bbox_coords}, Centroid={centroid_coords}, Orient='{orientation}'")
 
-                if detected:
-                    flash('Green brick DETECTED!', 'success')
-                    flash(f'Details: {status_message}', 'info')
-                else:
-                    flash('Green brick NOT detected.', 'warning')
-                    flash(f'Details: {status_message}', 'info')
+                processed_image_filename = filename # Default to original if no drawing
+                if detected and bbox_coords:
+                    img_to_draw_on = cv2.imread(filepath)
+                    if img_to_draw_on is not None:
+                        # Draw bounding box (assuming list of 4 (x,y) tuples or points)
+                        # cv2.polylines expects an array of points of shape (NumPoints, 1, 2)
+                        if len(bbox_coords) == 4 and all(isinstance(p, (list, tuple)) and len(p) == 2 for p in bbox_coords):
+                            pts = np.array(bbox_coords, np.int32)
+                            pts = pts.reshape((-1, 1, 2))
+                            cv2.polylines(img_to_draw_on, [pts], isClosed=True, color=(0, 255, 0), thickness=2)
+                        elif len(bbox_coords) == 4 and isinstance(bbox_coords[0], int): # for [x,y,w,h] from simple contour
+                             x,y,w,h = bbox_coords
+                             cv2.rectangle(img_to_draw_on, (x,y), (x+w, y+h), (0,255,0), 2)
 
-                # Optionally, remove the uploaded file after processing to save space
-                # os.remove(filepath)
-                # For now, keep it for easier debugging if needed
 
-                return redirect(url_for('upload_file', filename=filename)) # Or redirect to a result page
+                        # Draw centroid
+                        if centroid_coords:
+                            cv2.circle(img_to_draw_on, (int(centroid_coords[0]), int(centroid_coords[1])), radius=5, color=(0, 0, 255), thickness=-1)
+
+                        # Add orientation text
+                        cv2.putText(img_to_draw_on, f"Orientation: {orientation}", (10, 30),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2, cv2.LINE_AA)
+
+                        # Save the image with drawings
+                        name, ext = os.path.splitext(filename)
+                        processed_image_filename = f"{name}_processed{ext}"
+                        processed_filepath = os.path.join(app.config['UPLOAD_FOLDER'], processed_image_filename)
+                        cv2.imwrite(processed_filepath, img_to_draw_on)
+                        print(f"Saved processed image to: {processed_filepath}")
+                    else:
+                        print(f"Warning: Could not re-read image {filepath} to draw on.")
+
+                flash_categories = {
+                    'detected': 'success' if detected else 'warning',
+                    'status': 'info',
+                    'bbox': 'info' if bbox_coords else 'secondary',
+                    'centroid': 'info' if centroid_coords else 'secondary',
+                    'orientation': 'info'
+                }
+
+                flash(f'Detection Result: {"Green brick DETECTED!" if detected else "Green brick NOT detected."}', flash_categories['detected'])
+                flash(f'Details: {status_message}', flash_categories['status'])
+                if bbox_coords:
+                    flash(f'Bounding Box: {bbox_coords}', flash_categories['bbox'])
+                if centroid_coords:
+                    flash(f'Centroid: {centroid_coords}', flash_categories['centroid'])
+                flash(f'Orientation: {orientation}', flash_categories['orientation'])
+
+                return redirect(url_for('upload_file', filename=processed_image_filename, original_filename=filename if processed_image_filename != filename else None))
 
             except Exception as e:
+                import traceback
+                traceback.print_exc() # Print full traceback to server console
                 flash(f'An error occurred during processing: {str(e)}', 'error')
                 if os.path.exists(filepath): # Clean up if file was saved before error
                     os.remove(filepath)
@@ -90,8 +129,14 @@ def upload_file():
             return redirect(request.url)
 
     # For GET request, or after POST and redirect
-    uploaded_filename = request.args.get('filename')
-    return render_template('index.html', uploaded_filename=uploaded_filename)
+    processed_filename = request.args.get('filename') # This will be the _processed filename
+    original_filename = request.args.get('original_filename')
+
+    # Determine which image to display: the processed one if available, else original if that's what 'filename' refers to
+    display_filename = processed_filename
+
+    return render_template('index.html',
+                           uploaded_filename=display_filename)
 
 
 @app.route('/uploads/<filename>')
