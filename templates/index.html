@@ -40,13 +40,28 @@
         <form method="post" enctype="multipart/form-data" class="upload-form">
             <p>Upload an image to check if it contains the green brick.</p>
             <input type="file" name="file" required>
+
+            <fieldset style="margin-top: 15px; margin-bottom: 15px; padding: 10px; border: 1px solid #ddd;">
+                <legend>Robot Camera Calibration (Optional Placeholders)</legend>
+                <div>
+                    <label for="cam_dist_front">Camera distance from front of robot (mm):</label><br>
+                    <input type="number" id="cam_dist_front" name="cam_dist_front" value="100">
+                </div>
+                <div style="margin-top: 5px;">
+                    <label for="cam_height_ground">Camera height from ground (mm):</label><br>
+                    <input type="number" id="cam_height_ground" name="cam_height_ground" value="150">
+                </div>
+                <small>Note: These values are not currently used in detection logic.</small>
+            </fieldset>
+
             <input type="submit" value="Upload & Check">
         </form>
 
         {% if uploaded_filename %}
             <div class="uploaded-image-container">
-                <h2>Last Uploaded Image:</h2>
-                <img src="{{ url_for('uploaded_file', filename=uploaded_filename) }}" alt="Uploaded Image">
+                <h2>Processed Image:</h2>
+                <p><small>(If a brick was detected, drawings for bounding box, centroid, and orientation text are shown below)</small></p>
+                <img src="{{ url_for('uploaded_file', filename=uploaded_filename) }}" alt="Uploaded Image with Detections">
             </div>
         {% endif %}
     </div>
