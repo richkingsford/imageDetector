@@ -1,8 +1,10 @@
 from flask import Flask, request, render_template, redirect, url_for, flash
 import os
-import cv2 # For image size checking, not heavy processing here
+import cv2 # Used for reading images and drawing
+import numpy as np # Used for polylines points
 from werkzeug.utils import secure_filename
-from brick_detector import detect_brick, get_reference_descriptors, REFERENCE_IMAGE_DIR
+# Correctly import the new function and global variable names
+from brick_detector import detect_brick, get_reference_data, REFERENCE_IMAGE_DIR, REFERENCE_DATA
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"  # Needed for flashing messages
@@ -26,12 +28,12 @@ elif not any(fname.lower().endswith(('.png', '.jpg', '.jpeg')) for fname in os.l
     print(f"Warning: Reference image directory '{REFERENCE_IMAGE_DIR}' is empty or contains no images. Detection will likely fail.")
 
 
-# Pre-load reference descriptors on startup
-print("Initializing reference descriptors for the web app...")
-REFERENCE_DESCRIPTORS = get_reference_descriptors()
-if not REFERENCE_DESCRIPTORS:
-    print("Warning: No reference descriptors loaded. The detector might not work correctly.")
-    # Depending on desired behavior, you could prevent app startup or flash a persistent warning.
+# Pre-load reference data on startup
+print("Initializing reference data for the web app...")
+# Ensure correct function and variable names from brick_detector are used
+from brick_detector import REFERENCE_DATA # Changed from REFERENCE_DESCRIPTORS
+if not REFERENCE_DATA: # Changed from REFERENCE_DESCRIPTORS
+    print("Warning: No reference data loaded. The detector might not work correctly.")
 
 
 def allowed_file(filename):
@@ -160,12 +162,12 @@ if __name__ == '__main__':
         print(f"Created reference image directory: {REFERENCE_IMAGE_DIR}")
         print("Please place your 25 brick photos in this directory.")
 
-    if len(REFERENCE_DESCRIPTORS) == 0 :
-        print("\n\nWARNING: No reference images or descriptors found.")
+    if len(REFERENCE_DATA) == 0 : # Changed from REFERENCE_DESCRIPTORS
+        print("\n\nWARNING: No reference images or data found.")
         print(f"Please ensure your 25 brick photos are in the '{REFERENCE_IMAGE_DIR}' directory.")
         print("The application will run, but detection will not work correctly.\n\n")
     else:
-        print(f"\n\nSuccessfully loaded {len(REFERENCE_DESCRIPTORS)} reference image descriptors.")
+        print(f"\n\nSuccessfully loaded {len(REFERENCE_DATA)} reference image data entries.") # Changed variable and description
         print(f"Reference images should be in: {os.path.abspath(REFERENCE_IMAGE_DIR)}")
         print(f"Uploads will be stored in: {os.path.abspath(UPLOAD_FOLDER)}")
         print(f"Descriptor cache file: {os.path.abspath('reference_descriptors.pkl')}\n\n")
